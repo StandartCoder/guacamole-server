@@ -23,7 +23,9 @@
 #include "settings.h"
 
 #include <freerdp/freerdp.h>
+#ifdef HAVE_FREERDP_CAMERA
 #include <freerdp/client/camera.h>
+#endif
 #include <guacamole/client.h>
 #include <guacamole/mem.h>
 
@@ -101,6 +103,18 @@ static void guac_rdp_camera_channel_disconnected(rdpContext* context,
 
 void guac_rdp_camera_load_plugin(rdpContext* context) {
 
+#ifndef HAVE_FREERDP_CAMERA
+    /* Camera support is not available in this FreeRDP version */
+    guac_client* client = ((rdp_freerdp_context*) context)->client;
+    guac_rdp_client* rdp_client = (guac_rdp_client*) client->data;
+    
+    if (rdp_client->settings->enable_camera) {
+        guac_client_log(client, GUAC_LOG_WARNING,
+            "Camera redirection requires FreeRDP 3.6.0 or later. "
+            "Current FreeRDP version does not support camera redirection.");
+    }
+    return;
+#else
     guac_client* client = ((rdp_freerdp_context*) context)->client;
     guac_rdp_client* rdp_client = (guac_rdp_client*) client->data;
 
@@ -131,5 +145,6 @@ void guac_rdp_camera_load_plugin(rdpContext* context) {
     guac_client_log(client, GUAC_LOG_INFO,
         "Camera redirection enabled for device: %s",
         rdp_client->settings->camera_device);
+#endif
 
 }
