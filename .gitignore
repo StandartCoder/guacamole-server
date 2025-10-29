@@ -53,9 +53,7 @@ nbproject/
 .cache/
 compile_commands.json
 
-<<<<<<< ours
-Dockerfile.dev
-=======
 # IDE
 .vscode/
->>>>>>> theirs
+
+Dockerfile.dev

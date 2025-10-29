@@ -45,14 +45,10 @@ guac_rdp_disp* guac_rdp_disp_alloc(guac_client* client) {
     /* No requests have been made */
     disp->last_request = guac_timestamp_current();
     disp->reconnect_needed = 0;
+    disp->resize_needed = false;
 
-    /* Init first monitor */
-    disp->monitors = guac_mem_alloc(sizeof(guac_rdp_disp_monitor));
-    disp->monitors[0].requested_width  = 0;
-    disp->monitors[0].requested_height = 0;
-    disp->monitors[0].x_position  = 0;
-    disp->monitors[0].top_offset  = 0;
-    disp->monitors[0].left_offset = 0;
+    /* Init first monitor - all fields zeroed */
+    disp->monitors = guac_mem_zalloc(sizeof(guac_rdp_disp_monitor));
     disp->monitors_count = 1;
 
     return disp;
@@ -159,7 +155,27 @@ void guac_rdp_disp_load_plugin(rdpContext* context) {
 }
 
 /**
- * Reallocates the monitors to the given size.
+ * Recalculates the left_offset for all monitors based on their widths.
+ * This should be called whenever a monitor width changes or monitors are
+ * added/removed.
+ *
+ * @param disp
+ *     The display update module to recalculate offsets for.
+ */
+static void guac_rdp_disp_recalc_offsets(guac_rdp_disp* disp) {
+
+    int cumulative_offset = 0;
+
+    for (int i = 0; i < disp->monitors_count; i++) {
+        disp->monitors[i].left_offset = cumulative_offset;
+        cumulative_offset += disp->monitors[i].requested_width;
+    }
+
+}
+
+/**
+ * Reallocates the monitors to the given size. New monitors are initialized
+ * to zero.
  *
  * @param disp
  *     The display update module to reallocate.
@@ -174,36 +190,39 @@ static void guac_rdp_disp_realloc_monitors(guac_rdp_disp* disp,
     if (disp->monitors_count == requested_monitors)
         return;
 
+    int old_count = disp->monitors_count;
+
     disp->monitors = guac_mem_realloc(disp->monitors,
             requested_monitors * sizeof(guac_rdp_disp_monitor));
+
+    /* Initialize any newly allocated monitors to zero */
+    if (requested_monitors > old_count) {
+        memset(&disp->monitors[old_count], 0,
+                (requested_monitors - old_count) * sizeof(guac_rdp_disp_monitor));
+    }
 
     disp->monitors_count = requested_monitors;
 
 }
 
 /**
- * Returns the x-offset of the monitor at the given position from the left edge
- * of the screen.
+ * Returns the cached total width of all monitors combined.
  *
  * @param disp
  *     The display update module to query.
  *
- * @param x_position
- *     The position of the monitor to query.
- *
  * @return
- *     The offset of the monitor at the given position from the left edge of
- *     the screen, in pixels.
+ *     The total width of all monitors, in pixels.
  */
-static int guac_rdp_disp_get_left_offset(const guac_rdp_disp* disp, int x_position) {
+static int guac_rdp_disp_get_total_width(const guac_rdp_disp* disp) {
 
-    int x_offset = 0;
+    if (disp->monitors_count == 0)
+        return 0;
 
-    /* Calculate the offset of the monitor from the left edge of the screen */
-    for (int i = 0; i < x_position; i++)
-        x_offset += disp->monitors[i].requested_width;
-
-    return x_offset;
+    /* Return the right edge of the last monitor */
+    int last_idx = disp->monitors_count - 1;
+    return disp->monitors[last_idx].left_offset +
+           disp->monitors[last_idx].requested_width;
 
 }
 
@@ -276,7 +295,17 @@ static bool guac_rdp_disp_close_monitor(guac_rdp_disp* disp, int x_position) {
 
     /* Deallocate a monitor */
     guac_rdp_disp_realloc_monitors(disp, max_position);
+
+    /* Recalculate offsets for all remaining monitors */
+    guac_rdp_disp_recalc_offsets(disp);
+
     disp->resize_needed = true;
+
+    /* Log monitor removal for debugging */
+    guac_client* client = disp->client;
+    guac_client_log(client, GUAC_LOG_DEBUG,
+        "Monitor %d closed. %d monitors remaining.",
+        x_position, max_position);
 
     return true;
 
@@ -325,26 +354,49 @@ void guac_rdp_disp_set_size(guac_rdp_disp* disp, guac_rdp_settings* settings,
         if (width % 2 == 1)
             width -= 1;
 
+        /* Validate top offset is non-negative */
+        if (top_offset < 0)
+            top_offset = 0;
+
         /* Reallocate monitors if needed */
         if (disp->monitors_count < min_monitors_requested)
             guac_rdp_disp_realloc_monitors(disp, min_monitors_requested);
 
         guac_rdp_disp_monitor* monitor = &disp->monitors[x_position];
-            
-        /* Store deferred size if changed */
+
+        /* Check if anything actually changed */
         if (monitor->requested_width == width
                 && monitor->requested_height == height
                 && monitor->x_position == x_position
-                && monitor->top_offset == top_offset
-                && monitor->left_offset == guac_rdp_disp_get_left_offset(disp, x_position))
+                && monitor->top_offset == top_offset)
             return;
 
-        disp->resize_needed       = true;
+        /* Update monitor properties */
+        bool width_changed = (monitor->requested_width != width);
+        bool is_new_monitor = (monitor->requested_width == 0 && monitor->requested_height == 0);
+
         monitor->requested_width  = width;
         monitor->requested_height = height;
         monitor->x_position       = x_position;
         monitor->top_offset       = top_offset;
-        monitor->left_offset      = guac_rdp_disp_get_left_offset(disp, x_position);
+
+        /* Recalculate all offsets if width changed (affects subsequent monitors) */
+        if (width_changed)
+            guac_rdp_disp_recalc_offsets(disp);
+
+        disp->resize_needed = true;
+
+        /* Log monitor changes for debugging */
+        guac_client* client = disp->client;
+        if (is_new_monitor) {
+            guac_client_log(client, GUAC_LOG_DEBUG,
+                "Monitor %d added: %dx%d at (%d, %d)",
+                x_position, width, height, monitor->left_offset, top_offset);
+        } else {
+            guac_client_log(client, GUAC_LOG_DEBUG,
+                "Monitor %d resized: %dx%d at (%d, %d)",
+                x_position, width, height, monitor->left_offset, top_offset);
+        }
     }
 
     /* Try to close monitor or ignore request */
@@ -365,12 +417,16 @@ void guac_rdp_disp_update_size(guac_rdp_disp* disp,
     if (now - disp->last_request <= GUAC_RDP_DISP_UPDATE_INTERVAL)
         return;
 
-    int monitors_count = disp->monitors_count;
-    int width = guac_rdp_disp_get_left_offset(disp, monitors_count);
-    int height = guac_rdp_disp_get_total_height(disp);
-
     /* Do NOT send requests unless the size will change */
     if (rdp_inst != NULL && !disp->resize_needed)
+        return;
+
+    int monitors_count = disp->monitors_count;
+    int width = guac_rdp_disp_get_total_width(disp);
+    int height = guac_rdp_disp_get_total_height(disp);
+
+    /* Validate total dimensions are reasonable */
+    if (width <= 0 || height <= 0)
         return;
 
     disp->last_request = now;
