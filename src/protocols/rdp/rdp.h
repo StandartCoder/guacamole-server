@@ -25,6 +25,7 @@
 #include "channels/cliprdr.h"
 #include "channels/disp.h"
 #include "channels/rdpei.h"
+#include <guacamole/copilot.h>
 #include "common/clipboard.h"
 #include "common/list.h"
 #include "config.h"
@@ -218,6 +219,11 @@ typedef struct guac_rdp_client {
      * Camera/webcam redirection module.
      */
     guac_rdp_camera* camera;
+
+    /**
+     * Copilot AI assistant module.
+     */
+    guac_copilot* copilot;
 
     /**
      * Multi-touch support module (RDPEI).

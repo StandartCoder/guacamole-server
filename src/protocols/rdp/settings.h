@@ -622,6 +622,11 @@ typedef struct guac_rdp_settings {
     char* camera_device;
 
     /**
+     * Whether Copilot AI assistant is enabled.
+     */
+    int enable_copilot;
+
+    /**
      * Whether the RDP Graphics Pipeline Extension is enabled.
      */
     int enable_gfx;

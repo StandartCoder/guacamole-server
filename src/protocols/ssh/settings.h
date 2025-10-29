@@ -331,6 +331,11 @@ typedef struct guac_ssh_settings {
      */
     int wol_wait_time;
 
+    /**
+     * Whether Copilot AI assistant is enabled.
+     */
+    int enable_copilot;
+
 } guac_ssh_settings;
 
 /**

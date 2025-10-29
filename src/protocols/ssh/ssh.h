@@ -29,6 +29,8 @@
 #include "settings.h"
 #include "terminal/terminal.h"
 
+#include <guacamole/copilot.h>
+
 #ifdef ENABLE_SSH_AGENT
 #include "ssh_agent.h"
 #endif
@@ -47,6 +49,11 @@ typedef struct guac_ssh_client {
      * SSH connection settings.
      */
     guac_ssh_settings* settings;
+
+    /**
+     * Copilot AI assistant module.
+     */
+    guac_copilot* copilot;
 
 #ifdef ENABLE_SSH_AGENT
     /**
