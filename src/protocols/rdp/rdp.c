@@ -104,6 +104,10 @@ static BOOL rdp_freerdp_load_channels(freerdp* instance) {
     if (settings->resize_method == GUAC_RESIZE_DISPLAY_UPDATE)
         guac_rdp_disp_load_plugin(context);
 
+    /* Load camera redirection plugin */
+    if (settings->enable_camera)
+        guac_rdp_camera_load_plugin(context);
+
     /* Load "rdpei" plugin for multi-touch support */
     if (settings->enable_touch)
         guac_rdp_rdpei_load_plugin(context);

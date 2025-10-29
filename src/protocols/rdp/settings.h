@@ -612,6 +612,21 @@ typedef struct guac_rdp_settings {
     int enable_audio_input;
 
     /**
+     * Whether camera/webcam redirection is enabled.
+     */
+    int enable_camera;
+
+    /**
+     * The device path for the webcam (e.g., /dev/video0).
+     */
+    char* camera_device;
+
+    /**
+     * Whether Copilot AI assistant is enabled.
+     */
+    int enable_copilot;
+
+    /**
      * Whether the RDP Graphics Pipeline Extension is enabled.
      */
     int enable_gfx;

@@ -30,13 +30,67 @@
 #include <guacamole/assert.h>
 #include <guacamole/client.h>
 #include <guacamole/display.h>
+#include <guacamole/mem.h>
 #include <guacamole/protocol.h>
 #include <guacamole/protocol-constants.h>
 #include <winpr/wtypes.h>
 
 #include <stddef.h>
+#include <stdio.h>
 
-#define JSON_BUFFER_SIZE 2048
+/**
+ * Builds a JSON string with all monitor positions and sizes.
+ * Format: {"0":{"left":0,"top":0,"width":1920,"height":1080}, ...}
+ * Caller must free the returned string with guac_mem_free().
+ *
+ * @param rdp_client
+ *     The RDP client with monitor info.
+ *
+ * @return
+ *     JSON string describing the monitor layout. Never NULL.
+ */
+static char* guac_rdp_build_monitor_layout_json(guac_rdp_client* rdp_client) {
+
+    /* Start with enough space for typical setups, grows if needed */
+    int buffer_size = 100 + (rdp_client->disp->monitors_count * 120);
+    char* json = guac_mem_alloc(buffer_size);
+    int pos = 0;
+    int first = 1;
+
+    pos += snprintf(json + pos, buffer_size - pos, "{");
+
+    for (int i = 0; i < rdp_client->disp->monitors_count; i++) {
+
+        /* Skip uninitialized monitors */
+        if (rdp_client->disp->monitors[i].requested_width == 0 ||
+            rdp_client->disp->monitors[i].requested_height == 0) {
+            continue;
+        }
+
+        if (!first)
+            pos += snprintf(json + pos, buffer_size - pos, ",");
+        first = 0;
+
+        /* Grow buffer if we're running low on space */
+        if (pos >= buffer_size - 100) {
+            buffer_size *= 2;
+            json = guac_mem_realloc(json, buffer_size);
+        }
+
+        pos += snprintf(json + pos, buffer_size - pos,
+            "\"%d\":{\"left\":%d,\"top\":%d,\"width\":%d,\"height\":%d}",
+            i,
+            rdp_client->disp->monitors[i].left_offset,
+            rdp_client->disp->monitors[i].top_offset,
+            rdp_client->disp->monitors[i].requested_width,
+            rdp_client->disp->monitors[i].requested_height
+        );
+    }
+
+    snprintf(json + pos, buffer_size - pos, "}");
+
+    return json;
+}
 
 void guac_rdp_gdi_mark_frame(rdpContext* context, int starting) {
 
@@ -193,40 +247,15 @@ BOOL guac_rdp_gdi_desktop_resize(rdpContext* context) {
 
     guac_display_layer_close_raw(default_layer, current_context);
 
-    /* Make json string containing monitor information */
-    char json[JSON_BUFFER_SIZE];
-    int pos = 0;
-    pos += snprintf(json + pos, JSON_BUFFER_SIZE - pos, "{");
-
-    for (int i = 0; i < rdp_client->disp->monitors_count; i++) {
-
-        /* Skip monitors that have not been initialized yet */
-        if (rdp_client->disp->monitors[i].requested_width == 0 ||
-            rdp_client->disp->monitors[i].requested_height == 0) {
-            continue;
-        }
-
-        /* Append monitor information to JSON string */
-        pos += snprintf(json + pos, JSON_BUFFER_SIZE - pos,
-            "\"%d\": {\"left\":%d,\"top\":%d,\"width\":%d,\"height\":%d}",
-            i,
-            rdp_client->disp->monitors[i].left_offset,
-            rdp_client->disp->monitors[i].top_offset,
-            rdp_client->disp->monitors[i].requested_width,
-            rdp_client->disp->monitors[i].requested_height
-        );
-
-        /* Add comma between monitors, but not after the last one */
-        if (i + 1 < rdp_client->disp->monitors_count)
-            pos += snprintf(json + pos, JSON_BUFFER_SIZE - pos, ",");
-
-    }
-
-    snprintf(json + pos, JSON_BUFFER_SIZE - pos, "}");
+    /* Build JSON string containing monitor information */
+    char* json = guac_rdp_build_monitor_layout_json(rdp_client);
 
     /* Send monitor info to the client */
     guac_protocol_send_set(client->socket, (const guac_layer*) default_layer,
             GUAC_PROTOCOL_LAYER_PARAMETER_MULTIMON_LAYOUT, json);
+
+    /* Free the dynamically allocated JSON string */
+    guac_mem_free(json);
 
     /* Set default pointer after resizing to ensure it is visible when adding
      * a new monitor */
