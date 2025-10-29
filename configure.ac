@@ -1160,6 +1160,63 @@ then
     [AC_MSG_RESULT([no])])
 fi
 
+#
+# Camera/webcam redirection support (FreeRDP 3.6+)
+#
+
+have_freerdp_camera=no
+if test "x${have_freerdp}" = "xyes"
+then
+    # Check if FreeRDP camera.h header is available
+    AC_CHECK_HEADER([freerdp/client/camera.h],
+                    [have_freerdp_camera=yes],
+                    [have_freerdp_camera=no])
+
+    # If we're using FreeRDP 3.x, verify it's at least 3.6.0 for camera support
+    if test "x${freerdp_version}" = "x(3.x)" -a "x${have_freerdp_camera}" = "xyes"
+    then
+        AC_MSG_CHECKING([whether FreeRDP version is at least 3.6.0 for camera support])
+        
+        # Use pkg-config to get the actual version
+        freerdp3_version=`$PKG_CONFIG --modversion freerdp3 2>/dev/null`
+        
+        if test "x${freerdp3_version}" != "x"
+        then
+            # Extract major, minor, and patch version numbers
+            freerdp3_major=`echo ${freerdp3_version} | cut -d. -f1`
+            freerdp3_minor=`echo ${freerdp3_version} | cut -d. -f2`
+            freerdp3_patch=`echo ${freerdp3_version} | cut -d. -f3 | cut -d- -f1`
+            
+            # Check if version is >= 3.6.0
+            if test "${freerdp3_major}" -gt 3 -o \
+                    \( "${freerdp3_major}" -eq 3 -a "${freerdp3_minor}" -gt 6 \) -o \
+                    \( "${freerdp3_major}" -eq 3 -a "${freerdp3_minor}" -eq 6 -a "${freerdp3_patch}" -ge 0 \)
+            then
+                AC_MSG_RESULT([yes (${freerdp3_version})])
+                AC_DEFINE([HAVE_FREERDP_CAMERA],,
+                          [Whether FreeRDP has camera/webcam redirection support])
+            else
+                AC_MSG_RESULT([no (${freerdp3_version})])
+                AC_MSG_WARN([
+  --------------------------------------------
+   FreeRDP ${freerdp3_version} detected. Camera/webcam redirection
+   requires FreeRDP 3.6.0 or later. Camera support will be disabled.
+  --------------------------------------------])
+                have_freerdp_camera=no
+            fi
+        else
+            # Couldn't determine version, assume camera is available if header exists
+            AC_MSG_RESULT([unknown version, checking header availability])
+        fi
+    fi
+    
+    if test "x${have_freerdp_camera}" = "xyes"
+    then
+        AC_DEFINE([HAVE_FREERDP_CAMERA],,
+                  [Whether FreeRDP has camera/webcam redirection support])
+    fi
+fi
+
 # Restore CPPFLAGS, removing FreeRDP-specific options needed for testing
 CPPFLAGS="$OLDCPPFLAGS"
 
