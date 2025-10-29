@@ -1188,6 +1188,7 @@ then
             freerdp3_patch=`echo ${freerdp3_version} | cut -d. -f3 | cut -d- -f1`
             
             # Check if version is >= 3.6.0
+            # Accept: major > 3, OR (major == 3 AND minor > 6), OR (major == 3 AND minor == 6 AND patch >= 0)
             if test "${freerdp3_major}" -gt 3 -o \
                     \( "${freerdp3_major}" -eq 3 -a "${freerdp3_minor}" -gt 6 \) -o \
                     \( "${freerdp3_major}" -eq 3 -a "${freerdp3_minor}" -eq 6 -a "${freerdp3_patch}" -ge 0 \)
