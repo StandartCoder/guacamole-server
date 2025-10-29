@@ -21,6 +21,7 @@
 #define GUAC_RDP_H
 
 #include "channels/audio-input/audio-buffer.h"
+#include "channels/camera.h"
 #include "channels/cliprdr.h"
 #include "channels/disp.h"
 #include "channels/rdpei.h"
@@ -212,6 +213,11 @@ typedef struct guac_rdp_client {
      * Display size update module.
      */
     guac_rdp_disp* disp;
+
+    /**
+     * Camera/webcam redirection module.
+     */
+    guac_rdp_camera* camera;
 
     /**
      * Multi-touch support module (RDPEI).

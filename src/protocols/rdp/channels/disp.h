@@ -44,33 +44,23 @@
 #define GUAC_RDP_DISP_UPDATE_INTERVAL 500
 
 /**
- * Monitor properties (size, position).
+ * Represents one monitor in a multi-monitor setup.
  */
 typedef struct guac_rdp_disp_monitor {
 
-    /**
-     * The last requested screen width, in pixels.
-     */
+    /** Width in pixels */
     int requested_width;
 
-    /**
-     * The last requested screen height, in pixels.
-     */
+    /** Height in pixels */
     int requested_height;
 
-    /*
-     * The position of the monitor relative to the other monitors.
-     */
+    /** Index in the monitor array (0 = primary) */
     int x_position;
 
-    /**
-     * The offset of the monitor from the top of the layout, in pixels.
-     */
+    /** Vertical offset from the top edge */
     int top_offset;
 
-    /**
-     * The offset of the monitor from the left of the layout, in pixels.
-     */
+    /** Horizontal offset from the left edge (calculated automatically) */
     int left_offset;
 
 } guac_rdp_disp_monitor;

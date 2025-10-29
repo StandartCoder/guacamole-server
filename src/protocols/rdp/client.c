@@ -226,6 +226,9 @@ int guac_client_init(guac_client* client, int argc, char** argv) {
     /* Init display update module */
     rdp_client->disp = guac_rdp_disp_alloc(client);
 
+    /* Init camera redirection module */
+    rdp_client->camera = guac_rdp_camera_alloc(client);
+
     /* Init multi-touch support module (RDPEI) */
     rdp_client->rdpei = guac_rdp_rdpei_alloc(client);
 
@@ -283,6 +286,9 @@ int guac_rdp_client_free_handler(guac_client* client) {
 
     /* Free display update module */
     guac_rdp_disp_free(rdp_client->disp);
+
+    /* Free camera redirection module */
+    guac_rdp_camera_free(rdp_client->camera);
 
     /* Free multi-touch support module (RDPEI) */
     guac_rdp_rdpei_free(rdp_client->rdpei);

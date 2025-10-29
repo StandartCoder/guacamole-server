@@ -155,38 +155,36 @@ void guac_rdp_disp_load_plugin(rdpContext* context) {
 }
 
 /**
- * Recalculates the left_offset for all monitors based on their widths.
- * This should be called whenever a monitor width changes or monitors are
- * added/removed.
+ * Updates the left position of all monitors based on their widths.
+ * Monitors are arranged horizontally from left to right.
+ * Call this after any monitor width changes.
  *
  * @param disp
- *     The display update module to recalculate offsets for.
+ *     The display module containing the monitors to update.
  */
 static void guac_rdp_disp_recalc_offsets(guac_rdp_disp* disp) {
 
-    int cumulative_offset = 0;
+    int x = 0;
 
     for (int i = 0; i < disp->monitors_count; i++) {
-        disp->monitors[i].left_offset = cumulative_offset;
-        cumulative_offset += disp->monitors[i].requested_width;
+        disp->monitors[i].left_offset = x;
+        x += disp->monitors[i].requested_width;
     }
 
 }
 
 /**
- * Reallocates the monitors to the given size. New monitors are initialized
- * to zero.
+ * Resizes the monitor array. New monitors are zeroed out.
  *
  * @param disp
- *     The display update module to reallocate.
+ *     The display module to resize.
  *
  * @param requested_monitors
- *     The number of monitors to allocate.
+ *     How many monitors to have.
  */
 static void guac_rdp_disp_realloc_monitors(guac_rdp_disp* disp,
         int requested_monitors) {
 
-    /* No need to reallocate if the number of monitors is unchanged */
     if (disp->monitors_count == requested_monitors)
         return;
 
@@ -195,7 +193,7 @@ static void guac_rdp_disp_realloc_monitors(guac_rdp_disp* disp,
     disp->monitors = guac_mem_realloc(disp->monitors,
             requested_monitors * sizeof(guac_rdp_disp_monitor));
 
-    /* Initialize any newly allocated monitors to zero */
+    /* Zero out new monitors if we're adding any */
     if (requested_monitors > old_count) {
         memset(&disp->monitors[old_count], 0,
                 (requested_monitors - old_count) * sizeof(guac_rdp_disp_monitor));
@@ -206,106 +204,144 @@ static void guac_rdp_disp_realloc_monitors(guac_rdp_disp* disp,
 }
 
 /**
- * Returns the cached total width of all monitors combined.
+ * Gets the total width of all monitors combined. Since monitors are arranged
+ * left to right, this is just the right edge of the last monitor.
  *
  * @param disp
- *     The display update module to query.
+ *     The display module.
  *
  * @return
- *     The total width of all monitors, in pixels.
+ *     Total width in pixels.
  */
 static int guac_rdp_disp_get_total_width(const guac_rdp_disp* disp) {
 
     if (disp->monitors_count == 0)
         return 0;
 
-    /* Return the right edge of the last monitor */
-    int last_idx = disp->monitors_count - 1;
-    return disp->monitors[last_idx].left_offset +
-           disp->monitors[last_idx].requested_width;
+    int last = disp->monitors_count - 1;
+    return disp->monitors[last].left_offset + disp->monitors[last].requested_width;
 
 }
 
 /**
- * Returns the "total" height of all monitors. This is not the sum of the
- * heights of all monitors, but rather the height of the entire screen.
- * It is the subtraction of the lowest point by the highest point.
+ * Gets the total height needed for all monitors. This isn't the sum of heights,
+ * but the vertical span from the topmost to bottommost edge.
+ * For example: if one monitor starts at y=100 and goes to y=1180, and another
+ * starts at y=0 and goes to y=1080, the total height is 1180 (not 2160).
  *
  * @param disp
- *     The display update module to query.
+ *     The display module.
  *
  * @return
- *     The total height of the display, in pixels.
+ *     Total height in pixels.
  */
 static int guac_rdp_disp_get_total_height(const guac_rdp_disp* disp) {
 
-    int min_offset = 0;
-    int max_bottom = 0;
+    int top = 0;
+    int bottom = 0;
 
-    /* Loop through all monitors to find the maximum height */
     for (int i = 0; i < disp->monitors_count; i++) {
 
-        int requested_height = disp->monitors[i].requested_height;
-        int top_offset = disp->monitors[i].top_offset;
+        int monitor_top = disp->monitors[i].top_offset;
+        int monitor_bottom = monitor_top + disp->monitors[i].requested_height;
 
-        /* Find the highest point of the screen (the lowest top offset) */
-        if (top_offset < min_offset)
-            min_offset = top_offset;
+        if (monitor_top < top)
+            top = monitor_top;
 
-        /* Find the lowest point of the screen */
-        if (top_offset + requested_height > max_bottom)
-            max_bottom = top_offset + requested_height;
+        if (monitor_bottom > bottom)
+            bottom = monitor_bottom;
 
     }
 
-    return max_bottom - min_offset;
+    return bottom - top;
 
 }
 
 /**
- * Closes the monitor at the given position, if possible. If the monitor at the
- * given position is at the end of the list and there are other monitors, it
- * will be closed. Do nothing otherwise.
+ * Generates a human-readable description of the current monitor layout.
+ * Example: "1920x1080 + 1920x1080@1920,0" for two side-by-side monitors.
+ * Useful for debugging and logging.
  *
  * @param disp
- *     The display update module to close the monitor of.
+ *     The display module.
+ *
+ * @param buffer
+ *     Buffer to write the description into.
+ *
+ * @param size
+ *     Size of the buffer.
+ */
+static void guac_rdp_disp_get_layout_desc(const guac_rdp_disp* disp,
+        char* buffer, int size) {
+
+    int pos = 0;
+
+    for (int i = 0; i < disp->monitors_count && pos < size - 50; i++) {
+
+        const guac_rdp_disp_monitor* mon = &disp->monitors[i];
+
+        if (mon->requested_width == 0 || mon->requested_height == 0)
+            continue;
+
+        if (pos > 0)
+            pos += snprintf(buffer + pos, size - pos, " + ");
+
+        if (i == 0) {
+            /* Primary monitor - just show dimensions */
+            pos += snprintf(buffer + pos, size - pos, "%dx%d",
+                    mon->requested_width, mon->requested_height);
+        } else {
+            /* Secondary monitors - show position too */
+            pos += snprintf(buffer + pos, size - pos, "%dx%d@%d,%d",
+                    mon->requested_width, mon->requested_height,
+                    mon->left_offset, mon->top_offset);
+        }
+    }
+
+    if (pos == 0)
+        snprintf(buffer, size, "(no monitors)");
+
+}
+
+/**
+ * Removes a monitor from the layout. Can't remove the primary monitor (index 0).
+ * When a monitor is removed, ones after it shift down to fill the gap.
+ *
+ * @param disp
+ *     The display module.
  *
  * @param x_position
- *     The position of the monitor to close.
+ *     Index of the monitor to remove.
  *
  * @return
- *     true if the monitor was closed, false otherwise.
+ *     true if removed, false if couldn't (primary monitor or invalid index).
  */
 static bool guac_rdp_disp_close_monitor(guac_rdp_disp* disp, int x_position) {
 
-    int max_position = disp->monitors_count - 1;
+    int last = disp->monitors_count - 1;
 
-    /* Primary monitor or invalid position */
-    if (x_position <= 0 || x_position > max_position)
+    /* Can't remove primary monitor or invalid index */
+    if (x_position <= 0 || x_position > last)
         return false;
 
-    /* The monitor to close is not the last one, so copy memory after it to
-     * preserve those positioned after it */
-    if (x_position != max_position) {
-        int move_count = max_position - x_position;
+    /* Shift monitors after this one down to fill the gap */
+    if (x_position != last) {
+        int monitors_to_move = last - x_position;
         memmove(&disp->monitors[x_position],
                 &disp->monitors[x_position + 1],
-                move_count * sizeof(guac_rdp_disp_monitor));
+                monitors_to_move * sizeof(guac_rdp_disp_monitor));
     }
 
-    /* Deallocate a monitor */
-    guac_rdp_disp_realloc_monitors(disp, max_position);
-
-    /* Recalculate offsets for all remaining monitors */
+    guac_rdp_disp_realloc_monitors(disp, last);
     guac_rdp_disp_recalc_offsets(disp);
 
     disp->resize_needed = true;
 
-    /* Log monitor removal for debugging */
-    guac_client* client = disp->client;
-    guac_client_log(client, GUAC_LOG_DEBUG,
-        "Monitor %d closed. %d monitors remaining.",
-        x_position, max_position);
+    char layout[256];
+    guac_rdp_disp_get_layout_desc(disp, layout, sizeof(layout));
+
+    guac_client_log(disp->client, GUAC_LOG_DEBUG,
+        "Monitor %d removed. Layout: %s", x_position, layout);
 
     return true;
 
@@ -386,17 +422,15 @@ void guac_rdp_disp_set_size(guac_rdp_disp* disp, guac_rdp_settings* settings,
 
         disp->resize_needed = true;
 
-        /* Log monitor changes for debugging */
-        guac_client* client = disp->client;
-        if (is_new_monitor) {
-            guac_client_log(client, GUAC_LOG_DEBUG,
-                "Monitor %d added: %dx%d at (%d, %d)",
-                x_position, width, height, monitor->left_offset, top_offset);
-        } else {
-            guac_client_log(client, GUAC_LOG_DEBUG,
-                "Monitor %d resized: %dx%d at (%d, %d)",
-                x_position, width, height, monitor->left_offset, top_offset);
-        }
+        /* Log the change with full layout */
+        char layout[256];
+        guac_rdp_disp_get_layout_desc(disp, layout, sizeof(layout));
+
+        guac_client_log(disp->client, GUAC_LOG_DEBUG,
+            "Monitor %d %s: %s",
+            x_position,
+            is_new_monitor ? "added" : "resized",
+            layout);
     }
 
     /* Try to close monitor or ignore request */
