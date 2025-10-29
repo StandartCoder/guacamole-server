@@ -1193,8 +1193,6 @@ then
                     \( "${freerdp3_major}" -eq 3 -a "${freerdp3_minor}" -eq 6 -a "${freerdp3_patch}" -ge 0 \)
             then
                 AC_MSG_RESULT([yes (${freerdp3_version})])
-                AC_DEFINE([HAVE_FREERDP_CAMERA],,
-                          [Whether FreeRDP has camera/webcam redirection support])
             else
                 AC_MSG_RESULT([no (${freerdp3_version})])
                 AC_MSG_WARN([
