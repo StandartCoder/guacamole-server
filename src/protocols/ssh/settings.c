@@ -77,6 +77,8 @@ const char* GUAC_SSH_CLIENT_ARGS[] = {
     "clipboard-buffer-size",
     "disable-copy",
     "disable-paste",
+    "enable-copilot",
+    "copilot-openai-key",
     "wol-send-packet",
     "wol-mac-addr",
     "wol-broadcast-addr",
@@ -330,6 +332,17 @@ enum SSH_ARGS_IDX {
      * the clipboard. By default, clipboard access is not blocked.
      */
     IDX_DISABLE_PASTE,
+    
+    /**
+     * Whether Copilot AI assistant should be enabled for the SSH connection.
+     * By default, Copilot is disabled.
+     */
+    IDX_ENABLE_COPILOT,
+    
+    /**
+     * The OpenAI API key for Copilot AI assistant.
+     */
+    IDX_COPILOT_OPENAI_KEY,
     
     /**
      * Whether the magic WoL packet should be sent prior to starting the
@@ -592,6 +605,16 @@ guac_ssh_settings* guac_ssh_parse_args(guac_user* user,
     settings->disable_paste =
         guac_user_parse_args_boolean(user, GUAC_SSH_CLIENT_ARGS, argv,
                 IDX_DISABLE_PASTE, false);
+    
+    /* Parse Copilot enable flag */
+    settings->enable_copilot =
+        guac_user_parse_args_boolean(user, GUAC_SSH_CLIENT_ARGS, argv,
+                IDX_ENABLE_COPILOT, false);
+    
+    /* Parse Copilot OpenAI API key */
+    settings->copilot_openai_key =
+        guac_user_parse_args_string(user, GUAC_SSH_CLIENT_ARGS, argv,
+                IDX_COPILOT_OPENAI_KEY, NULL);
     
     /* Parse Wake-on-LAN (WoL) parameters. */
     settings->wol_send_packet =

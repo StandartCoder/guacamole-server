@@ -627,6 +627,11 @@ typedef struct guac_rdp_settings {
     int enable_copilot;
 
     /**
+     * The OpenAI API key for Copilot AI assistant.
+     */
+    char* copilot_openai_key;
+
+    /**
      * Whether the RDP Graphics Pipeline Extension is enabled.
      */
     int enable_gfx;

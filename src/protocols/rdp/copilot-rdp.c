@@ -23,6 +23,7 @@
 
 #include <guacamole/client.h>
 #include <guacamole/copilot.h>
+#include <guacamole/string.h>
 
 void guac_rdp_copilot_init(guac_client* client, guac_rdp_client* rdp_client) {
 
@@ -39,6 +40,17 @@ void guac_rdp_copilot_init(guac_client* client, guac_rdp_client* rdp_client) {
     }
 
     rdp_client->copilot = copilot;
+
+    /* Set OpenAI API key if provided */
+    if (rdp_client->settings->copilot_openai_key != NULL &&
+            strlen(rdp_client->settings->copilot_openai_key) > 0) {
+        copilot->ai_api_key = guac_strdup(rdp_client->settings->copilot_openai_key);
+        guac_client_log(client, GUAC_LOG_INFO,
+                "Copilot OpenAI integration enabled");
+    } else {
+        guac_client_log(client, GUAC_LOG_INFO,
+                "Copilot running in local-only mode (no OpenAI key provided)");
+    }
 
     /* Set RDP-specific context */
     guac_copilot_update_context(copilot, "rdp", NULL, "Windows");

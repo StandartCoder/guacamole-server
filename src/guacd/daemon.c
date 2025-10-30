@@ -99,7 +99,7 @@ static int redirect_fd(int fd, int flags) {
  *    still the original caller. This function does not return for the original
  *    caller if daemonization succeeds.
  */
-static int daemonize() {
+static int daemonize(void) {
 
     pid_t pid;
 
@@ -322,13 +322,13 @@ int main(int argc, char* argv[]) {
     /* General */
     int retval;
 
-#ifdef HAVE_DECL_PTHREAD_SETATTR_DEFAULT_NP
+#if HAVE_DECL_PTHREAD_SETATTR_DEFAULT_NP
     /* Set default stack size */
     pthread_attr_t default_pthread_attr;
     pthread_attr_init(&default_pthread_attr);
     pthread_attr_setstacksize(&default_pthread_attr, GUACD_THREAD_STACK_SIZE);
     pthread_setattr_default_np(&default_pthread_attr);
-#endif // HAVE_DECL_PTHREAD_SETATTR_DEFAULT_NP
+#endif /* HAVE_DECL_PTHREAD_SETATTR_DEFAULT_NP */
 
     /* Load configuration */
     guacd_config* config = guacd_conf_load();

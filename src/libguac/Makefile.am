@@ -47,6 +47,7 @@ libguacinc_HEADERS =                  \
     guacamole/client-constants.h      \
     guacamole/client-fntypes.h        \
     guacamole/client-types.h          \
+    guacamole/copilot.h               \
     guacamole/display.h               \
     guacamole/display-constants.h     \
     guacamole/display-types.h         \
@@ -129,6 +130,7 @@ libguac_la_SOURCES =          \
     argv.c                    \
     audio.c                   \
     client.c                  \
+    copilot.c                 \
     display.c                 \
     display-builtin-cursors.c \
     display-cursor.c          \
@@ -199,6 +201,7 @@ libguac_la_LDFLAGS =     \
     -version-info 25:0:0 \
     -no-undefined        \
     @CAIRO_LIBS@         \
+    @CURL_LIBS@          \
     @DL_LIBS@            \
     @JPEG_LIBS@          \
     @PNG_LIBS@           \

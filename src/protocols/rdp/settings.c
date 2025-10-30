@@ -132,6 +132,8 @@ const char* GUAC_RDP_CLIENT_ARGS[] = {
     "enable-audio-input",
     "enable-camera",
     "camera-device",
+    "enable-copilot",
+    "copilot-openai-key",
     "enable-touch",
     "read-only",
 
@@ -623,6 +625,17 @@ enum RDP_ARGS_IDX {
      * The device path for the webcam (e.g., /dev/video0).
      */
     IDX_CAMERA_DEVICE,
+
+    /**
+     * "true" if Copilot AI assistant should be enabled for the RDP connection,
+     * "false" or blank otherwise.
+     */
+    IDX_ENABLE_COPILOT,
+
+    /**
+     * The OpenAI API key for Copilot AI assistant.
+     */
+    IDX_COPILOT_OPENAI_KEY,
 
     /**
      * "true" if multi-touch support should be enabled for the RDP connection,
@@ -1272,6 +1285,16 @@ guac_rdp_settings* guac_rdp_parse_args(guac_user* user,
     settings->camera_device =
         guac_user_parse_args_string(user, GUAC_RDP_CLIENT_ARGS, argv,
                 IDX_CAMERA_DEVICE, NULL);
+
+    /* Copilot AI assistant enable/disable */
+    settings->enable_copilot =
+        guac_user_parse_args_boolean(user, GUAC_RDP_CLIENT_ARGS, argv,
+                IDX_ENABLE_COPILOT, 0);
+
+    /* Copilot OpenAI API key */
+    settings->copilot_openai_key =
+        guac_user_parse_args_string(user, GUAC_RDP_CLIENT_ARGS, argv,
+                IDX_COPILOT_OPENAI_KEY, NULL);
 
     /* RDP Graphics Pipeline enable/disable */
     settings->enable_gfx =

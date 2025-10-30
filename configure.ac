@@ -81,11 +81,15 @@ AC_CHECK_LIB([pthread], [pthread_create], [PTHREAD_LIBS=-lpthread
 AC_CHECK_DECLS([pthread_setattr_default_np], , , [[#include <pthread.h>]])
             
 # librt
-AC_CHECK_FUNC([timer_create], [AC_MSG_RESULT([timer_create was found without librt.])],
+# On macOS, timer_create is not available but we can use kqueue or dispatch timers
+AC_CHECK_FUNC([timer_create], 
+              [AC_MSG_RESULT([timer_create was found without librt.])
+               AC_DEFINE([HAVE_TIMER_CREATE],, [Whether timer_create is available])],
               [AC_CHECK_LIB([rt], [timer_create],
                             [AC_MSG_RESULT([timer_create was found in librt.])
-                                           RT_LIBS=-lrt],
-                            [AC_MSG_ERROR([timer_create could not be found.])])
+                             RT_LIBS=-lrt
+                             AC_DEFINE([HAVE_TIMER_CREATE],, [Whether timer_create is available])],
+                            [AC_MSG_WARN([timer_create could not be found. This is expected on macOS.])])
               ])
 
 # Include libdl for dlopen() if necessary
@@ -94,6 +98,12 @@ AC_CHECK_LIB([dl], [dlopen],
              [AC_CHECK_DECL([dlopen],,
                             AC_MSG_ERROR("libdl is required on systems which do not otherwise provide dlopen()"),
                             [#include <dlfcn.h>])])
+
+# libcurl (for Copilot OpenAI API integration)
+AC_CHECK_LIB([curl], [curl_easy_init],
+             [CURL_LIBS=-lcurl
+              AC_DEFINE([HAVE_LIBCURL],, [Whether libcurl was found])],
+             [AC_MSG_WARN([libcurl not found. Copilot OpenAI integration will be disabled.])])
 
 #
 # libuuid
@@ -150,6 +160,7 @@ AC_SUBST(JPEG_LIBS)
 AC_SUBST(CAIRO_LIBS)
 AC_SUBST(RT_LIBS)
 AC_SUBST(PTHREAD_LIBS)
+AC_SUBST(CURL_LIBS)
 AC_SUBST(UUID_LIBS)
 AC_SUBST(CUNIT_LIBS)
 

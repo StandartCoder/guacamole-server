@@ -1895,7 +1895,7 @@ static void __guac_common_surface_flush(guac_common_surface* surface) {
     guac_common_surface_bitmap_rect* current = surface->bitmap_queue;
     int i, j;
     int original_queue_length;
-    int flushed = 0;
+    int flushed __attribute__((unused)) = 0;
 
     original_queue_length = surface->bitmap_queue_length;
 

@@ -32,6 +32,7 @@ libguac_client_ssh_la_SOURCES = \
     argv.c                      \
     client.c                    \
     clipboard.c                 \
+    copilot-ssh.c               \
     input.c                     \
     pipe.c                      \
     settings.c                  \
@@ -44,6 +45,7 @@ noinst_HEADERS =                \
     argv.h                      \
     client.h                    \
     clipboard.h                 \
+    copilot-ssh.h               \
     input.h                     \
     pipe.h                      \
     settings.h                  \

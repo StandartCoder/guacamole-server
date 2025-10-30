@@ -408,4 +408,28 @@ int guac_copilot_register_quick_action(guac_copilot* copilot,
 void guac_copilot_send_message(guac_copilot* copilot,
         const char* message_type, const char* message);
 
+/**
+ * Queries OpenAI API for AI-powered assistance.
+ *
+ * @param copilot
+ *     The copilot instance.
+ *
+ * @param api_key
+ *     The OpenAI API key.
+ *
+ * @param prompt
+ *     The prompt/question to send to OpenAI.
+ *
+ * @param response_buffer
+ *     Buffer to store the response.
+ *
+ * @param buffer_size
+ *     Size of the response buffer.
+ *
+ * @return
+ *     Zero on success, non-zero on error.
+ */
+int guac_copilot_query_openai(guac_copilot* copilot, const char* api_key,
+        const char* prompt, char* response_buffer, int buffer_size);
+
 #endif

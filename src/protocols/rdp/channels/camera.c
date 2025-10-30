@@ -53,6 +53,8 @@ void guac_rdp_camera_free(guac_rdp_camera* camera) {
 
 }
 
+#ifdef HAVE_FREERDP_CAMERA
+
 /**
  * Callback invoked when the camera device channel is connected.
  */
@@ -100,6 +102,8 @@ static void guac_rdp_camera_channel_disconnected(rdpContext* context,
     camera->active = 0;
 
 }
+
+#endif /* HAVE_FREERDP_CAMERA */
 
 void guac_rdp_camera_load_plugin(rdpContext* context) {
 

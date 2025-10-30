@@ -42,6 +42,7 @@ libguac_client_rdp_la_SOURCES =                  \
     beep.c                                       \
     channels/audio-input/audio-buffer.c          \
     channels/audio-input/audio-input.c           \
+    channels/camera.c                            \
     channels/cliprdr.c                           \
     channels/common-svc.c                        \
     channels/disp.c                              \
@@ -61,6 +62,7 @@ libguac_client_rdp_la_SOURCES =                  \
     channels/rdpsnd/rdpsnd.c                     \
     client.c                                     \
     color.c                                      \
+    copilot-rdp.c                                \
     decompose.c                                  \
     download.c                                   \
     error.c                                      \
@@ -88,6 +90,7 @@ noinst_HEADERS =                                 \
     beep.h                                       \
     channels/audio-input/audio-buffer.h          \
     channels/audio-input/audio-input.h           \
+    channels/camera.h                            \
     channels/cliprdr.h                           \
     channels/common-svc.h                        \
     channels/disp.h                              \
@@ -107,6 +110,7 @@ noinst_HEADERS =                                 \
     channels/rdpsnd/rdpsnd.h                     \
     client.h                                     \
     color.h                                      \
+    copilot-rdp.h                                \
     decompose.h                                  \
     download.h                                   \
     error.h                                      \

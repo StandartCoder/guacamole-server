@@ -72,6 +72,9 @@ int guac_client_init(guac_client* client) {
     guac_ssh_client* ssh_client = guac_mem_zalloc(sizeof(guac_ssh_client));
     client->data = ssh_client;
 
+    /* Store back-reference to the guac_client */
+    ssh_client->client = client;
+
     /* Set handlers */
     client->join_handler = guac_ssh_user_join_handler;
     client->join_pending_handler = guac_ssh_join_pending_handler;

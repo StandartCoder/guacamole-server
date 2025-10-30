@@ -188,7 +188,7 @@ static UINT guac_rdp_ai_close(IWTSVirtualChannelCallback* channel_callback) {
  */
 static UINT guac_rdp_ai_new_connection(
         IWTSListenerCallback* listener_callback, IWTSVirtualChannel* channel,
-        BYTE* data, int* accept,
+        BYTE* data, BOOL* accept,
         IWTSVirtualChannelCallback** channel_callback) {
 
     guac_rdp_ai_listener_callback* ai_listener_callback =

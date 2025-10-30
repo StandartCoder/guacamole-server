@@ -47,16 +47,9 @@
 #define GUAC_DISPLAY_CPU_THREAD_FACTOR 1
 
 /**
- * Returns the number of processors available to this process. If possible,
- * limits on otherwise available processors like CPU affinity will be taken
- * into account. If the number of available processors cannot be determined,
- * zero is returned.
- *
- * @return
- *     The number of available processors, or zero if this value cannot be
- *     determined for any reason.
+ * Returns the number of processors available on the system.
  */
-static unsigned long guac_display_nproc() {
+static unsigned long guac_display_nproc(void) {
 
 #if defined(HAVE_SCHED_GETAFFINITY)
 
@@ -103,7 +96,7 @@ static unsigned long guac_display_nproc() {
     /* Fallback implementation that does not query the number of CPUs available
      * at all, returning an error code (as portable as it gets) */
 
-    long cpu_count = 0;
+    /* No CPU count available on this platform */
 
 #endif
 

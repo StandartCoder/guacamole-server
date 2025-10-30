@@ -45,6 +45,17 @@ void guac_ssh_copilot_init(guac_client* client, guac_ssh_client* ssh_client) {
 
     ssh_client->copilot = copilot;
 
+    /* Set OpenAI API key if provided */
+    if (ssh_client->settings->copilot_openai_key != NULL &&
+            strlen(ssh_client->settings->copilot_openai_key) > 0) {
+        copilot->ai_api_key = guac_strdup(ssh_client->settings->copilot_openai_key);
+        guac_client_log(client, GUAC_LOG_INFO,
+                "Copilot OpenAI integration enabled");
+    } else {
+        guac_client_log(client, GUAC_LOG_INFO,
+                "Copilot running in local-only mode (no OpenAI key provided)");
+    }
+
     /* Set SSH-specific context */
     guac_copilot_update_context(copilot, "ssh", "~", "Linux");
 

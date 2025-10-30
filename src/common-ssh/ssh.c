@@ -202,7 +202,7 @@ int guac_common_ssh_init(guac_client* client) {
 
 }
 
-void guac_common_ssh_uninit() {
+void guac_common_ssh_uninit(void) {
 #ifdef OPENSSL_REQUIRES_THREADING_CALLBACKS
     guac_common_ssh_openssl_free_locks(CRYPTO_num_locks());
 #endif

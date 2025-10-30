@@ -46,6 +46,11 @@
 typedef struct guac_ssh_client {
 
     /**
+     * The Guacamole client instance.
+     */
+    guac_client* client;
+
+    /**
      * SSH connection settings.
      */
     guac_ssh_settings* settings;

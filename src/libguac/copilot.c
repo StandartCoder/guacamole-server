@@ -29,7 +29,13 @@
 #include <string.h>
 #include <stdio.h>
 
+#ifdef HAVE_LIBCURL
+#include <curl/curl.h>
+#endif
+
 #define GUAC_COPILOT_HISTORY_SIZE 50
+#define GUAC_OPENAI_API_ENDPOINT "https://api.openai.com/v1/chat/completions"
+#define GUAC_OPENAI_MODEL "gpt-4"
 
 guac_copilot* guac_copilot_alloc(guac_client* client) {
 
@@ -391,7 +397,59 @@ int guac_copilot_suggest_commands(guac_copilot* copilot, const char* input,
 
     guac_copilot_context* ctx = copilot->context;
 
-    /* Provide context-based suggestions */
+    /* If OpenAI API key is available, use AI for suggestions */
+    if (copilot->ai_api_key != NULL && strlen(copilot->ai_api_key) > 0) {
+        
+        char prompt[2048];
+        snprintf(prompt, sizeof(prompt),
+                "User is in a %s session on %s. Current directory: %s. "
+                "Recent commands: ",
+                ctx->protocol ? ctx->protocol : "remote",
+                ctx->os_type ? ctx->os_type : "unknown OS",
+                ctx->current_directory ? ctx->current_directory : "/");
+        
+        /* Add recent command history to prompt */
+        int history_len = strlen(prompt);
+        int cmd_start = (ctx->command_count > 3) ? ctx->command_count - 3 : 0;
+        for (int i = cmd_start; i < ctx->command_count && history_len < 1800; i++) {
+            int added = snprintf(prompt + history_len, sizeof(prompt) - history_len,
+                    "'%s', ", ctx->command_history[i]);
+            if (added > 0)
+                history_len += added;
+        }
+        
+        /* Add the actual request */
+        snprintf(prompt + history_len, sizeof(prompt) - history_len,
+                ". User typed: '%s'. Suggest %d relevant commands (one per line, no explanations).",
+                input ? input : "", max_suggestions);
+        
+        char ai_response[4096];
+        if (guac_copilot_query_openai(copilot, copilot->ai_api_key, prompt,
+                ai_response, sizeof(ai_response)) == 0) {
+            
+            /* Parse response into suggestions (split by newlines) */
+            char* line = strtok(ai_response, "\n");
+            while (line != NULL && count < max_suggestions) {
+                /* Skip empty lines and trim whitespace */
+                while (*line == ' ' || *line == '\t') line++;
+                if (strlen(line) > 0) {
+                    (*suggestions)[count++] = guac_strdup(line);
+                }
+                line = strtok(NULL, "\n");
+            }
+            
+            guac_client_log(copilot->client, GUAC_LOG_DEBUG,
+                    "OpenAI provided %d suggestions", count);
+            
+            if (count > 0)
+                return count; /* Return AI suggestions */
+        }
+        
+        guac_client_log(copilot->client, GUAC_LOG_DEBUG,
+                "Falling back to local suggestions");
+    }
+
+    /* Fallback: Provide context-based suggestions locally */
     if (ctx->protocol != NULL && strcmp(ctx->protocol, "ssh") == 0) {
 
         if (input == NULL || strlen(input) == 0) {
@@ -529,10 +587,271 @@ void guac_copilot_send_message(guac_copilot* copilot,
 
     guac_client* client = copilot->client;
 
-    /* Send as a special "copilot" instruction to the client */
-    guac_protocol_send_argv(client->socket, client->socket->last_write_timestamp,
-            "text/plain", "copilot", message);
+    /* Send as a custom instruction to the client */
+    guac_socket_write_string(client->socket, "4.argv,");
+    guac_socket_write_string(client->socket, "10.text/plain,");
+    guac_socket_write_string(client->socket, "7.copilot,");
+    
+     /* length_str must be large enough to hold the decimal representation
+         of strlen(message) (up to 20 digits on 64-bit) plus the trailing
+         dot and NUL terminator. 32 bytes is plenty. */
+     char length_str[32];
+     snprintf(length_str, sizeof(length_str), "%zu.", strlen(message));
+    guac_socket_write_string(client->socket, length_str);
+    guac_socket_write_string(client->socket, message);
+    guac_socket_write_string(client->socket, ";");
 
     guac_socket_flush(client->socket);
 
 }
+
+#ifdef HAVE_LIBCURL
+
+/**
+ * Callback for libcurl to write response data.
+ */
+static size_t guac_copilot_curl_write_callback(void* contents, size_t size,
+        size_t nmemb, void* userp) {
+
+    size_t realsize = size * nmemb;
+    char** response = (char**)userp;
+
+    /* Reallocate buffer to fit new data */
+    size_t current_len = *response ? strlen(*response) : 0;
+    char* new_response = realloc(*response, current_len + realsize + 1);
+
+    if (new_response == NULL) {
+        /* Out of memory */
+        return 0;
+    }
+
+    *response = new_response;
+    memcpy(*response + current_len, contents, realsize);
+    (*response)[current_len + realsize] = '\0';
+
+    return realsize;
+}
+
+/**
+ * Escapes a JSON string by replacing special characters.
+ */
+static char* guac_copilot_escape_json_string(const char* str) {
+    if (str == NULL)
+        return guac_strdup("");
+
+    size_t len = strlen(str);
+    char* escaped = guac_mem_alloc(len * 2 + 1); /* Worst case: all chars escaped */
+    char* dst = escaped;
+
+    for (const char* src = str; *src; src++) {
+        switch (*src) {
+            case '"':
+                *dst++ = '\\';
+                *dst++ = '"';
+                break;
+            case '\\':
+                *dst++ = '\\';
+                *dst++ = '\\';
+                break;
+            case '\n':
+                *dst++ = '\\';
+                *dst++ = 'n';
+                break;
+            case '\r':
+                *dst++ = '\\';
+                *dst++ = 'r';
+                break;
+            case '\t':
+                *dst++ = '\\';
+                *dst++ = 't';
+                break;
+            default:
+                *dst++ = *src;
+        }
+    }
+    *dst = '\0';
+
+    return escaped;
+}
+
+int guac_copilot_query_openai(guac_copilot* copilot, const char* api_key,
+        const char* prompt, char* response_buffer, int buffer_size) {
+
+    if (copilot == NULL || api_key == NULL || prompt == NULL || 
+            response_buffer == NULL || buffer_size <= 0) {
+        return -1;
+    }
+
+    guac_client* client = copilot->client;
+    CURL* curl;
+    CURLcode res;
+    char* response_data = NULL;
+    int result = -1;
+
+    guac_client_log(client, GUAC_LOG_DEBUG,
+            "Querying OpenAI API for copilot assistance");
+
+    /* Initialize curl */
+    curl = curl_easy_init();
+    if (!curl) {
+        guac_client_log(client, GUAC_LOG_ERROR,
+                "Failed to initialize curl for OpenAI API");
+        return -1;
+    }
+
+    /* Escape the prompt for JSON */
+    char* escaped_prompt = guac_copilot_escape_json_string(prompt);
+
+    /* Build context information */
+    char context_info[1024] = "";
+    if (copilot->context) {
+        snprintf(context_info, sizeof(context_info),
+                "Context: Protocol=%s, OS=%s, Directory=%s, CommandHistory=%d commands",
+                copilot->context->protocol ? copilot->context->protocol : "unknown",
+                copilot->context->os_type ? copilot->context->os_type : "unknown",
+                copilot->context->current_directory ? copilot->context->current_directory : "/",
+                copilot->context->command_count);
+    }
+    char* escaped_context = guac_copilot_escape_json_string(context_info);
+
+    /* Build JSON payload */
+    char json_payload[8192];
+    snprintf(json_payload, sizeof(json_payload),
+            "{"
+            "\"model\":\"%s\","
+            "\"messages\":["
+            "{\"role\":\"system\",\"content\":\"You are a helpful AI assistant for remote desktop and SSH sessions. Provide concise, actionable advice. %s\"},"
+            "{\"role\":\"user\",\"content\":\"%s\"}"
+            "],"
+            "\"max_tokens\":500,"
+            "\"temperature\":0.7"
+            "}",
+            GUAC_OPENAI_MODEL,
+            escaped_context,
+            escaped_prompt);
+
+    guac_mem_free(escaped_prompt);
+    guac_mem_free(escaped_context);
+
+    /* Set up headers */
+    struct curl_slist* headers = NULL;
+    char auth_header[512];
+    snprintf(auth_header, sizeof(auth_header), "Authorization: Bearer %s", api_key);
+    
+    headers = curl_slist_append(headers, "Content-Type: application/json");
+    headers = curl_slist_append(headers, auth_header);
+
+    /* Configure curl */
+    curl_easy_setopt(curl, CURLOPT_URL, GUAC_OPENAI_API_ENDPOINT);
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json_payload);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, guac_copilot_curl_write_callback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_data);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
+
+    /* Perform request */
+    res = curl_easy_perform(curl);
+
+    if (res != CURLE_OK) {
+        guac_client_log(client, GUAC_LOG_ERROR,
+                "OpenAI API request failed: %s", curl_easy_strerror(res));
+    } else {
+        long http_code = 0;
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+
+        if (http_code == 200 && response_data) {
+            guac_client_log(client, GUAC_LOG_DEBUG,
+                    "OpenAI API response received successfully");
+
+            /* Parse JSON response to extract the message content */
+            /* Look for "content": in the response */
+            char* content_start = strstr(response_data, "\"content\":");
+            if (content_start) {
+                content_start = strchr(content_start, '"');
+                if (content_start) {
+                    content_start++; /* Skip opening quote */
+                    content_start = strchr(content_start, '"');
+                    if (content_start) {
+                        content_start++; /* Skip second quote */
+                        char* content_end = strstr(content_start, "\",");
+                        if (!content_end)
+                            content_end = strstr(content_start, "\"");
+                        
+                        if (content_end) {
+                            int len = content_end - content_start;
+                            if (len > buffer_size - 1)
+                                len = buffer_size - 1;
+                            
+                            strncpy(response_buffer, content_start, len);
+                            response_buffer[len] = '\0';
+                            
+                            /* Unescape basic JSON escape sequences */
+                            char* src = response_buffer;
+                            char* dst = response_buffer;
+                            while (*src) {
+                                if (*src == '\\' && *(src + 1)) {
+                                    src++;
+                                    switch (*src) {
+                                        case 'n': *dst++ = '\n'; break;
+                                        case 'r': *dst++ = '\r'; break;
+                                        case 't': *dst++ = '\t'; break;
+                                        case '"': *dst++ = '"'; break;
+                                        case '\\': *dst++ = '\\'; break;
+                                        default: *dst++ = *src; break;
+                                    }
+                                    src++;
+                                } else {
+                                    *dst++ = *src++;
+                                }
+                            }
+                            *dst = '\0';
+                            
+                            result = 0; /* Success */
+                        }
+                    }
+                }
+            }
+
+            if (result != 0) {
+                guac_client_log(client, GUAC_LOG_ERROR,
+                        "Failed to parse OpenAI API response");
+                snprintf(response_buffer, buffer_size,
+                        "Error: Could not parse AI response");
+            }
+        } else {
+            guac_client_log(client, GUAC_LOG_ERROR,
+                    "OpenAI API returned error. HTTP code: %ld", http_code);
+            snprintf(response_buffer, buffer_size,
+                    "Error: OpenAI API returned HTTP %ld", http_code);
+        }
+    }
+
+    /* Cleanup */
+    if (response_data)
+        free(response_data);
+    curl_slist_free_all(headers);
+    curl_easy_cleanup(curl);
+
+    return result;
+}
+
+#else
+
+/* Fallback implementation when libcurl is not available */
+int guac_copilot_query_openai(guac_copilot* copilot, const char* api_key,
+        const char* prompt, char* response_buffer, int buffer_size) {
+
+    if (copilot == NULL || response_buffer == NULL || buffer_size <= 0)
+        return -1;
+
+    guac_client_log(copilot->client, GUAC_LOG_WARNING,
+            "OpenAI integration is not available. libcurl was not found during build.");
+
+    snprintf(response_buffer, buffer_size,
+            "Error: OpenAI integration requires libcurl");
+
+    return -1;
+}
+
+#endif

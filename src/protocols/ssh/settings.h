@@ -336,6 +336,11 @@ typedef struct guac_ssh_settings {
      */
     int enable_copilot;
 
+    /**
+     * The OpenAI API key for Copilot AI assistant.
+     */
+    char* copilot_openai_key;
+
 } guac_ssh_settings;
 
 /**

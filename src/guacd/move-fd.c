@@ -23,6 +23,11 @@
 /* Required for CMSG_* macros on BSD */
 #define __BSD_VISIBLE 1
 
+/* Required for CMSG_* macros on macOS */
+#ifdef __APPLE__
+#define _DARWIN_C_SOURCE
+#endif
+
 #include <errno.h>
 #include <fcntl.h>
 #include <string.h>
@@ -44,7 +49,8 @@ int guacd_send_fd(int sock, int fd) {
     message.msg_iovlen = 1;
 
     /* Assign ancillary data buffer */
-    char buffer[CMSG_SPACE(sizeof(fd))] = {0};
+    char buffer[CMSG_SPACE(sizeof(fd))];
+    memset(buffer, 0, sizeof(buffer));
     message.msg_control = buffer;
     message.msg_controllen = sizeof(buffer);
 

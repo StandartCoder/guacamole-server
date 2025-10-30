@@ -38,7 +38,10 @@ void guac_flag_init(guac_flag* event_flag) {
      * time changes) */
     pthread_condattr_t cond_attr;
     pthread_condattr_init(&cond_attr);
+#ifndef __APPLE__
+    /* macOS doesn't support pthread_condattr_setclock */
     pthread_condattr_setclock(&cond_attr, CLOCK_MONOTONIC);
+#endif
     pthread_condattr_setpshared(&cond_attr, PTHREAD_PROCESS_SHARED);
     pthread_cond_init(&event_flag->value_changed, &cond_attr);
 
