@@ -617,11 +617,6 @@ typedef struct guac_rdp_settings {
     int enable_camera;
 
     /**
-     * The device path for the webcam (e.g., /dev/video0).
-     */
-    char* camera_device;
-
-    /**
      * Whether Copilot AI assistant is enabled.
      */
     int enable_copilot;

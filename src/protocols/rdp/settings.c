@@ -131,7 +131,6 @@ const char* GUAC_RDP_CLIENT_ARGS[] = {
     "secondary-monitors",
     "enable-audio-input",
     "enable-camera",
-    "camera-device",
     "enable-copilot",
     "copilot-openai-key",
     "enable-touch",
@@ -620,11 +619,6 @@ enum RDP_ARGS_IDX {
      * "true" if camera/webcam redirection should be enabled.
      */
     IDX_ENABLE_CAMERA,
-
-    /**
-     * The device path for the webcam (e.g., /dev/video0).
-     */
-    IDX_CAMERA_DEVICE,
 
     /**
      * "true" if Copilot AI assistant should be enabled for the RDP connection,
@@ -1282,10 +1276,6 @@ guac_rdp_settings* guac_rdp_parse_args(guac_user* user,
         guac_user_parse_args_boolean(user, GUAC_RDP_CLIENT_ARGS, argv,
                 IDX_ENABLE_CAMERA, 0);
 
-    settings->camera_device =
-        guac_user_parse_args_string(user, GUAC_RDP_CLIENT_ARGS, argv,
-                IDX_CAMERA_DEVICE, NULL);
-
     /* Copilot AI assistant enable/disable */
     settings->enable_copilot =
         guac_user_parse_args_boolean(user, GUAC_RDP_CLIENT_ARGS, argv,
@@ -1449,7 +1439,6 @@ guac_rdp_settings* guac_rdp_parse_args(guac_user* user,
 void guac_rdp_settings_free(guac_rdp_settings* settings) {
 
     /* Free settings strings */
-    guac_mem_free(settings->camera_device);
     guac_mem_free(settings->client_name);
     guac_mem_free(settings->domain);
     guac_mem_free(settings->drive_name);

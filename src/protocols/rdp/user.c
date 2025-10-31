@@ -18,6 +18,7 @@
  */
 
 #include "channels/audio-input/audio-input.h"
+#include "channels/camera.h"
 #include "channels/cliprdr.h"
 #include "channels/pipe-svc.h"
 #include "config.h"
@@ -124,6 +125,23 @@ int guac_rdp_user_file_handler(guac_user* user, guac_stream* stream,
 
     guac_rdp_client* rdp_client = (guac_rdp_client*) user->client->data;
     guac_rdp_settings* settings = rdp_client->settings;
+
+    /* Check if this is a camera video stream */
+    if (mimetype != NULL && strncmp(mimetype, "video/", 6) == 0 &&
+        settings->enable_camera && rdp_client->camera != NULL) {
+
+        guac_client_log(user->client, GUAC_LOG_DEBUG,
+            "Received camera video stream: %s", mimetype);
+
+        /* Store the stream in the camera module for handling */
+        rdp_client->camera->video_stream = stream;
+
+        /* Set up stream to receive camera video data */
+        stream->blob_handler = guac_rdp_camera_blob_handler;
+        stream->end_handler = guac_rdp_camera_end_handler;
+
+        return 0;
+    }
 
 #ifdef ENABLE_COMMON_SSH
 
