@@ -57,3 +57,5 @@ compile_commands.json
 .vscode/
 
 Dockerfile.dev
+
+core
