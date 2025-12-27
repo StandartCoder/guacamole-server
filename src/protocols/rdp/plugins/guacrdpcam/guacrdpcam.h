@@ -29,7 +29,7 @@
 #include <pthread.h>
 
 #include "channels/rdpcam/rdpcam-stream.h"
-#include "rdpcam_proto.h"
+#include "rdpcam-proto.h"
 
 /* Forward declaration */
 typedef struct guac_rdp_client guac_rdp_client;
