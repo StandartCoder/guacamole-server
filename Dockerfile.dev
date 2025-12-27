@@ -1,0 +1,53 @@
+# guacamole-server/Dockerfile.dev
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential autoconf automake libtool pkg-config \
+    libcairo2-dev libpng-dev libjpeg-turbo8-dev libwebp-dev \
+    libpango1.0-dev libssh2-1-dev libvncserver-dev \
+    freerdp2-dev libwinpr2-dev \
+    libpulse-dev libavcodec-dev libavutil-dev libavformat-dev \
+    libssl-dev libcurl4-openssl-dev zlib1g-dev ca-certificates git bash \
+ && rm -rf /var/lib/apt/lists/*
+
+# Install prefix for guacd + plugins
+ENV PREFIX=/opt/guac
+RUN mkdir -p "$PREFIX" "$PREFIX/lib/guacamole"
+WORKDIR /src
+
+# Ensure guacd loads plugins from here (and can resolve libs there)
+ENV GUACAMOLE_CLIENT_PATH=/opt/guac/lib/guacamole
+ENV LD_LIBRARY_PATH=/opt/guac/lib:/opt/guac/lib/guacamole
+
+# Build from mounted source on start, normalize plugin install, then run guacd
+CMD set -e; \
+    autoreconf -fi; \
+    ./configure --prefix="$PREFIX" --with-rdp; \
+    make -j"$(nproc)"; \
+    make install; \
+    \
+    # Normalize client plugins: ensure REAL .so.0.0.0 live under $PREFIX/lib/guacamole
+    mkdir -p "$PREFIX/lib/guacamole"; \
+    for p in rdp ssh vnc; do \
+      if [ -f "$PREFIX/lib/libguac-client-$p.so.0.0.0" ]; then \
+        mv -f "$PREFIX/lib/libguac-client-$p.so.0.0.0" "$PREFIX/lib/guacamole/"; \
+      fi; \
+      if [ -f "$PREFIX/lib/guacamole/libguac-client-$p.so.0.0.0" ]; then \
+        ln -sfn "libguac-client-$p.so.0.0.0" "$PREFIX/lib/guacamole/libguac-client-$p.so"; \
+      fi; \
+    done; \
+    \
+    # (Optional safety) mirror into other common lookup dirs
+    for d in "/usr/local/lib/guacamole" "/usr/lib/guacamole"; do \
+      mkdir -p "$d"; \
+      for p in rdp ssh vnc; do \
+        if [ -f "$PREFIX/lib/guacamole/libguac-client-$p.so.0.0.0" ]; then \
+          cp -f "$PREFIX/lib/guacamole/libguac-client-$p.so.0.0.0" "$d/"; \
+          ln -sfn "libguac-client-$p.so.0.0.0" "$d/libguac-client-$p.so"; \
+        fi; \
+      done; \
+    done; \
+    \
+    echo "== plugin dir ==" && ls -l "$PREFIX/lib/guacamole/" || true; \
+    "$PREFIX/sbin/guacd" -b 0.0.0.0 -f -L debug
