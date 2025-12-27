@@ -83,6 +83,10 @@ int guac_rdp_user_join_handler(guac_user* user, int argc, char** argv) {
         if (settings->enable_audio_input)
             user->audio_handler = guac_rdp_audio_handler;
 
+        /* Handle inbound camera streams if RDPCAM is enabled */
+        if (settings->enable_rdpcam)
+            user->video_handler = guac_rdp_rdpcam_video_handler;
+
     }
 
     /* Only handle events if not read-only */

@@ -606,6 +606,11 @@ typedef struct guac_rdp_settings {
     int enable_audio_input;
 
     /**
+     * Whether camera redirection (RDPCAM) is enabled.
+     */
+    int enable_rdpcam;
+
+    /**
      * Whether the RDP Graphics Pipeline Extension is enabled.
      */
     int enable_gfx;

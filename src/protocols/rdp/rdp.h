@@ -22,6 +22,8 @@
 
 #include "channels/audio-input/audio-buffer.h"
 #include "channels/cliprdr.h"
+#include "channels/rdpcam/rdpcam.h"
+#include "channels/rdpcam/rdpcam-caps.h"
 #include "channels/disp.h"
 #include "channels/rdpei.h"
 #include "common/clipboard.h"
@@ -70,6 +72,19 @@
  * The maximum number of input events to allow in the event queue.
  */
 #define GUAC_RDP_INPUT_EVENT_QUEUE_SIZE 4096
+
+struct guac_rdpcam_stream;
+
+/* Forward declaration for RDPCAM plugin */
+struct guac_rdp_rdpcam_plugin;
+
+/**
+ * Callback invoked when RDPCAM capabilities have been updated on the core
+ * side. Implemented by the RDPCAM plugin and set at runtime to allow the
+ * plugin to react immediately (e.g., send DeviceAddedNotification) without
+ * creating link-time dependencies between DSOs.
+ */
+typedef void (*guac_rdp_rdpcam_caps_notify_fn)(struct guac_client* client);
 
 /**
  * RDP-specific client data.
@@ -174,6 +189,41 @@ typedef struct guac_rdp_client {
      */
     guac_rdp_audio_buffer* audio_input;
 
+    /**
+     * RDPCAM stream, if camera redirection is enabled.
+     */
+    struct guac_rdpcam_stream* rdpcam_stream;
+
+    /**
+     * Per-device camera capabilities reported by the browser via
+     * rdpcam-capabilities. Each entry represents one camera device.
+     */
+    guac_rdp_rdpcam_device_caps rdpcam_device_caps[GUAC_RDP_RDPCAM_MAX_DEVICES];
+
+    /**
+     * Number of valid entries within rdpcam_device_caps array.
+     */
+    unsigned int rdpcam_device_caps_count;
+
+    /**
+     * Flag indicating that new RDPCAM capabilities have been received
+     * and need to be processed by the plugin. The plugin should check this
+     * flag and clear it after sending device notifications.
+     */
+    int rdpcam_caps_updated;
+    /**
+     * Reference to the RDPCAM plugin instance, if loaded.
+     * Used by capabilities callback to send device notifications.
+     */
+    struct guac_rdp_rdpcam_plugin* rdpcam_plugin;
+
+    /**
+     * Optional callback set by the RDPCAM plugin to be invoked when
+     * capabilities are updated. This avoids cross-library linking by allowing
+     * the core to trigger plugin behavior via a function pointer.
+     */
+    guac_rdp_rdpcam_caps_notify_fn rdpcam_caps_notify;
+    
     /**
      * The filesystem being shared, if any.
      */

@@ -21,6 +21,7 @@
 #include "channels/audio-input/audio-buffer.h"
 #include "channels/cliprdr.h"
 #include "channels/disp.h"
+#include "channels/rdpcam/rdpcam-stream.h"
 #include "channels/pipe-svc.h"
 #include "channels/rail.h"
 #include "config.h"
@@ -315,6 +316,20 @@ int guac_rdp_client_free_handler(guac_client* client) {
     /* Clean up audio input buffer, if allocated */
     if (rdp_client->audio_input != NULL)
         guac_rdp_audio_buffer_free(rdp_client->audio_input);
+
+    /* Clean up RDPCAM stream, if allocated */
+    if (rdp_client->rdpcam_stream != NULL)
+        guac_rdpcam_destroy(rdp_client->rdpcam_stream);
+
+    /* Free RDPCAM device capabilities */
+    for (unsigned int i = 0; i < rdp_client->rdpcam_device_caps_count; i++) {
+        guac_rdp_rdpcam_device_caps* caps = &rdp_client->rdpcam_device_caps[i];
+        if (caps->device_id)
+            guac_mem_free(caps->device_id);
+        if (caps->device_name)
+            guac_mem_free(caps->device_name);
+    }
+    rdp_client->rdpcam_device_caps_count = 0;
 
     guac_rwlock_destroy(&(rdp_client->lock));
     pthread_mutex_destroy(&(rdp_client->message_lock));
