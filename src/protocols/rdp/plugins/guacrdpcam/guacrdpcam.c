@@ -421,7 +421,7 @@ void guac_rdp_rdpcam_caps_notify(guac_client* client) {
             }
 
             /* Create listener for this device channel */
-            if (plugin->manager) 
+            if (plugin->manager) {
                 guac_rdp_rdpcam_listener_callback* device_listener =
                     guac_mem_zalloc(sizeof(guac_rdp_rdpcam_listener_callback));
                 if (device_listener) {
