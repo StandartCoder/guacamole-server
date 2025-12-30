@@ -420,8 +420,8 @@ void guac_rdp_rdpcam_caps_notify(guac_client* client) {
                 }
             }
 
-            /* Create listener for this device channel if not Device_0 */
-            if (assigned_channel_idx > 0 && plugin->manager) {
+            /* Create listener for this device channel */
+            if (plugin->manager) 
                 guac_rdp_rdpcam_listener_callback* device_listener =
                     guac_mem_zalloc(sizeof(guac_rdp_rdpcam_listener_callback));
                 if (device_listener) {
@@ -2027,11 +2027,9 @@ static UINT guac_rdp_rdpcam_initialize(IWTSPlugin* plugin,
     guac_rdp_rdpcam_listener_callback* device0_listener =
         guac_mem_zalloc(sizeof(guac_rdp_rdpcam_listener_callback));
 
-    if (!control_listener || !device0_listener) {
+    if (!control_listener) {
         guac_client_log(rdpcam_plugin->client, GUAC_LOG_ERROR,
-            "Failed to allocate RDPCAM listener callbacks");
-        guac_mem_free(control_listener);
-        guac_mem_free(device0_listener);
+            "Failed to allocate RDPCAM listener callback");
         return CHANNEL_RC_NO_MEMORY;
     }
 
@@ -2041,19 +2039,12 @@ static UINT guac_rdp_rdpcam_initialize(IWTSPlugin* plugin,
     control_listener->parent.OnNewChannelConnection = guac_rdp_rdpcam_new_connection;
     rdpcam_plugin->control_listener_callback = control_listener;
 
-    device0_listener->client = rdpcam_plugin->client;
-    device0_listener->channel_name = GUAC_RDPCAM_DEVICE0_CHANNEL_NAME;
-    device0_listener->plugin = rdpcam_plugin;
-    device0_listener->parent.OnNewChannelConnection = guac_rdp_rdpcam_new_connection;
-    rdpcam_plugin->device0_listener_callback = device0_listener;
-
     /* Initialize hash table for multi-device support */
     rdpcam_plugin->devices = HashTable_New(FALSE);
     if (!rdpcam_plugin->devices) {
         guac_client_log(rdpcam_plugin->client, GUAC_LOG_ERROR,
             "Failed to create device hash table");
         guac_mem_free(control_listener);
-        guac_mem_free(device0_listener);
         return CHANNEL_RC_NO_MEMORY;
     }
 
@@ -2065,7 +2056,6 @@ static UINT guac_rdp_rdpcam_initialize(IWTSPlugin* plugin,
             "Failed to create device ID map hash table");
         HashTable_Free(rdpcam_plugin->devices);
         guac_mem_free(control_listener);
-        guac_mem_free(device0_listener);
         return CHANNEL_RC_NO_MEMORY;
     }
 
@@ -2079,8 +2069,6 @@ static UINT guac_rdp_rdpcam_initialize(IWTSPlugin* plugin,
     /* Register control channel listener */
     manager->CreateListener(manager, GUAC_RDPCAM_CHANNEL_NAME, 0,
             (IWTSListenerCallback*) control_listener, NULL);
-    manager->CreateListener(manager, GUAC_RDPCAM_DEVICE0_CHANNEL_NAME, 0,
-            (IWTSListenerCallback*) device0_listener, NULL);
 
     guac_client_log(rdpcam_plugin->client, GUAC_LOG_DEBUG,
         "RDPCAM plugin initialized with multi-device support");
@@ -2107,10 +2095,6 @@ static UINT guac_rdp_rdpcam_terminated(IWTSPlugin* plugin) {
     if (rdpcam_plugin->control_listener_callback != NULL) {
         guac_mem_free(rdpcam_plugin->control_listener_callback);
         rdpcam_plugin->control_listener_callback = NULL;
-    }
-    if (rdpcam_plugin->device0_listener_callback != NULL) {
-        guac_mem_free(rdpcam_plugin->device0_listener_callback);
-        rdpcam_plugin->device0_listener_callback = NULL;
     }
 
     /* Destroy all devices in hash table */
@@ -2622,8 +2606,8 @@ void guac_rdp_rdpcam_send_device_notifications(
             }
         }
         
-        /* Create listener for this device channel if not Device_0 (Device_0 is pre-created) */
-        if (i > 0 && plugin->manager) {
+        /* Create listener for this device channel */
+        if (plugin->manager) {
             guac_rdp_rdpcam_listener_callback* device_listener =
                 guac_mem_zalloc(sizeof(guac_rdp_rdpcam_listener_callback));
             if (device_listener) {
