@@ -1270,7 +1270,7 @@ guac_rdp_settings* guac_rdp_parse_args(guac_user* user,
     /* Camera redirection enable/disable */
     settings->enable_rdpcam =
         guac_user_parse_args_boolean(user, GUAC_RDP_CLIENT_ARGS, argv,
-                IDX_ENABLE_RDPCAM, 1);
+                IDX_ENABLE_RDPCAM, 0);
 
     /* Set gateway hostname */
     settings->gateway_hostname =
