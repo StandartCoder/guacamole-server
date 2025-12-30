@@ -150,7 +150,7 @@ static BOOL rdp_freerdp_load_channels(freerdp* instance) {
         }
 
         if (guac_argv_register(GUAC_RDPCAM_ARG_CAPABILITIES_UPDATE,
-                guac_rdp_rdpcam_capabilities_update_callback, NULL, 0)) {
+                guac_rdp_rdpcam_capabilities_callback, NULL, 0)) {
             guac_client_log(client, GUAC_LOG_WARNING,
                     "Unable to register RDPCAM capability update handler;"
                     " dynamic camera enable/disable may be limited.");

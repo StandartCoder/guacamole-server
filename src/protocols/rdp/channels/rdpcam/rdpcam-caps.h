@@ -118,7 +118,8 @@ size_t guac_rdp_rdpcam_sanitize_device_name(const char* name, char* sanitized, s
 /**
  * Callback invoked when camera capabilities are received from the browser.
  * This function parses the multi-device capability string and updates the
- * RDP client's device capability storage.
+ * RDP client's device capability storage. An empty string clears all previously
+ * advertised devices.
  *
  * @param user
  *     The user who sent the capabilities.
@@ -127,11 +128,13 @@ size_t guac_rdp_rdpcam_sanitize_device_name(const char* name, char* sanitized, s
  *     The mimetype of the data (unused).
  *
  * @param name
- *     The name of the argument (should be "rdpcam-capabilities").
+ *     The name of the argument. Either "rdpcam-capabilities" or
+ *     "rdpcam-capabilities-update".
  *
  * @param value
  *     The capability string in format:
  *     "DEVICE_ID:DEVICE_NAME|WIDTHxHEIGHT@FPS_NUM/FPS_DEN,...;..."
+ *     or empty if all cameras are disabled.
  *
  * @param data
  *     User-defined data (unused).
@@ -140,35 +143,6 @@ size_t guac_rdp_rdpcam_sanitize_device_name(const char* name, char* sanitized, s
  *     Always returns 0.
  */
 int guac_rdp_rdpcam_capabilities_callback(guac_user* user,
-        const char* mimetype, const char* name, const char* value, void* data);
-
-/**
- * Callback invoked when camera capability updates are received from the browser.
- * This is called when the user enables/disables cameras during an active session.
- * The plugin is responsible for comparing old and new capabilities to determine
- * which devices were added or removed.
- *
- * @param user
- *     The user who sent the capability update.
- *
- * @param mimetype
- *     The mimetype of the data (unused).
- *
- * @param name
- *     The name of the argument (should be "rdpcam-capabilities-update").
- *
- * @param value
- *     The capability string in the same format as initial capabilities:
- *     "DEVICE_ID:DEVICE_NAME|WIDTHxHEIGHT@FPS_NUM/FPS_DEN,...;..."
- *     Can be empty string if all cameras are disabled.
- *
- * @param data
- *     User-defined data (unused).
- *
- * @return
- *     Always returns 0.
- */
-int guac_rdp_rdpcam_capabilities_update_callback(guac_user* user,
         const char* mimetype, const char* name, const char* value, void* data);
 
 #endif
