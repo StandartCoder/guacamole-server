@@ -149,6 +149,13 @@ static BOOL rdp_freerdp_load_channels(freerdp* instance) {
                     " dynamic media type negotiation may be limited.");
         }
 
+        if (guac_argv_register(GUAC_RDPCAM_ARG_CAPABILITIES_UPDATE,
+                guac_rdp_rdpcam_capabilities_update_callback, NULL, 0)) {
+            guac_client_log(client, GUAC_LOG_WARNING,
+                    "Unable to register RDPCAM capability update handler;"
+                    " dynamic camera enable/disable may be limited.");
+        }
+
         /* Initialize stream pointer to NULL. Each device will create its own stream.
          * When a device starts streaming, rdp_client->rdpcam_stream will be set
          * to point to that device's stream so the browser knows where to push frames. */
